@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<meta name="description" content="Connect to your FitnessWatch to view readings, sync IIT Delhi AQI, and change the watch screens.">
+<title>FitnessWatch</title>
+<style>
+ :root { color-scheme: light; font: 1rem/1.5 "Source Sans 3", system-ui, sans-serif; color: #171717; background: #fff; }
+ * { box-sizing: border-box; }
+ body { margin: 0; }
+ main { max-width: 47rem; margin-inline: auto; padding: clamp(1rem, 5vw, 2.75rem); }
+ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.5rem; padding-block: .25rem 1.3rem; border-bottom: 2px solid; }
+ h1 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.75rem); letter-spacing: -.035em; }
+ h2 { margin: 0 0 .35rem; font-size: 1.125rem; }
+ header p { margin: .15rem 0 0; }
+ a { color: inherit; text-underline-offset: .17em; }
+ button, input, select { font: inherit; color: inherit; }
+ button { min-height: 44px; padding: .5rem .8rem; background: white; border: 1px solid currentColor; font-weight: 600; cursor: pointer; }
+ button:enabled:hover { background: #eee; }
+ button:disabled { opacity: .48; cursor: default; }
+ button.primary { background: #171717; color: white; border-color: #171717; }
+ button.primary:enabled:hover { background: #373737; }
+ :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+ .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+ .readings { margin: 0; padding-block: 1.5rem; }
+ .readings dt { font-weight: 600; color: #4a4a4a; }
+ .readings dd { margin: .15rem 0 0; font-variant-numeric: tabular-nums; font-weight: 650; }
+ #pulse { font-size: clamp(2.1rem, 8vw, 3.75rem); letter-spacing: -.05em; line-height: 1.1; }
+ .metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .9rem; margin-top: 1.25rem; border-top: 1px solid #bdbdbd; padding-top: .9rem; }
+ .metrics dd { font-size: clamp(1rem, 3.7vw, 1.3rem); }
+ .panel { border-top: 1px solid #bdbdbd; padding-block: .9rem; }
+ summary { font-weight: 650; min-height: 32px; cursor: pointer; }
+ legend { font-weight: 600; padding: 0; }
+ fieldset { border: 0; min-width: 0; padding: .6rem 0 0; }
+ fieldset p, .panel p, #status { font-size: .95rem; color: #4a4a4a; }
+ .panel p { margin-block: .2rem .75rem; }
+ .panel p:empty { display: none; }
+ #screen-list { margin: 0 0 .75rem; padding-left: 1.5rem; }
+ #screen-list li { padding-block: .25rem; }
+ #screen-list button { padding: .35rem .55rem; margin: .15rem .2rem .15rem 0; font-size: .9rem; }
+ #screen-list label { display: inline-flex; align-items: center; gap: .35rem; min-width: 8.3rem; margin-right: .3rem; }
+ input[type=checkbox] { accent-color: #171717; }
+ pre { margin: .5rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+ input[type=number] { max-width: 8rem; }
+ @media (max-width: 25rem) { .metrics { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+ <div>
+  <h1>FitnessWatch</h1>
+  <p id="status" role="status">Disconnected</p>
+ </div>
+ <div class="actions">
+  <button id="connect" class="primary">Connect watch</button>
+  <button id="disconnect" disabled>Disconnect</button>
+ </div>
+</header>
+<dl class="readings" aria-label="Live watch readings">
+ <div><dt>Heart rate</dt><dd id="pulse">—</dd></div>
+ <div class="metrics">
+  <div><dt>Watch time</dt><dd id="clock">—</dd></div>
+  <div><dt>Session steps</dt><dd id="steps">—</dd></div>
+  <div><dt>SpO₂</dt><dd id="spo2">—</dd></div>
+ </div>
+</dl>
+<section class="panel" aria-labelledby="aqi-heading">
+ <h2 id="aqi-heading">IIT Delhi air quality</h2>
+ <p>Send the Indian AQI from the <a href="https://ews.tropmet.res.in/">IIT Delhi monitoring station</a> to the watch.</p>
+ <button id="sync-aqi" disabled>Sync AQI to watch</button>
+ <p id="aqi-status" role="status"></p>
+</section>
+<details class="panel">
+ <summary>Watch screens</summary>
+ <fieldset id="screen-controls" disabled>
+  <legend>Screen order</legend>
+  <p>Choose the screens to show, then arrange them in the order they should appear.</p>
+  <ol id="screen-list"></ol>
+  <div class="actions">
+   <button type="button" id="apply-screens">Apply order</button>
+   <button type="button" id="time-only">Time only</button>
+  </div>
+ </fieldset>
+ <p id="screen-status" role="status">Connect the watch to change its screens.</p>
+</details>
+<details>
+ <summary class="panel">Diagnostics</summary>
+ <pre id="metrics">Red: — · IR: —</pre>
+ <pre id="motion"></pre>
+ <pre id="temperature"></pre>
+ <h2>Temperature calibration</h2>
+ <form id="temperature-form">
+  <p><label>Room thermometer (°C) <input name="reference" type="number" step="any" required></label></p>
+  <p><label>Watch placement
+   <select name="placement"><option value="bench">On bench</option><option value="wrist">On wrist</option></select>
+  </label></p>
+  <p><label>Power source
+   <select name="power"><option value="usb">USB</option><option value="battery">Battery</option></select>
+  </label></p>
+  <button id="start-temperature" disabled>Start recording</button>
+  <button type="button" id="stop-temperature" disabled>Stop</button>
+  <button type="button" id="save-temperature" disabled>Download CSV</button>
+  <p id="temperature-status" role="status"></p>
+ </form>
+</details>
+</main>
+<script type="module">
+import {connectFitnessWatch, WATCH_SCREEN_NAMES} from './watch-ble.mjs';
+import {TemperatureCapture} from './temperature-capture.mjs';
+
+const connect = document.querySelector('#connect');
+const disconnect = document.querySelector('#disconnect');
+const status = document.querySelector('#status');
+const clock = document.querySelector('#clock');
+const pulse = document.querySelector('#pulse');
+const steps = document.querySelector('#steps');
+const spo2 = document.querySelector('#spo2');
+const aqiSync = document.querySelector('#sync-aqi');
+const aqiStatus = document.querySelector('#aqi-status');
+const screenControls = document.querySelector('#screen-controls');
+const screenList = document.querySelector('#screen-list');
+const screenStatus = document.querySelector('#screen-status');
+const screenApply = document.querySelector('#apply-screens');
+const timeOnly = document.querySelector('#time-only');
+const metrics = document.querySelector('#metrics');
+const motion = document.querySelector('#motion');
+const temperature = document.querySelector('#temperature');
+const temperatureCapture = new TemperatureCapture();
+const temperatureForm = document.querySelector('#temperature-form');
+const temperatureStart = document.querySelector('#start-temperature');
+const temperatureStop = document.querySelector('#stop-temperature');
+const temperatureSave = document.querySelector('#save-temperature');
+const temperatureStatus = document.querySelector('#temperature-status');
+const EMPTY_RAW = 'Red: — · IR: —';
+let connection;
+let watchBusy = false;
+let screenDraft = [];
+let latestPulse;
+let latestActivity;
+let lastPacket = 0;
+
+function render() {
+ const bpm = latestPulse?.bpm;
+ if (bpm != null) {
+  pulse.textContent = bpm + ' BPM';
+ } else {
+  pulse.textContent = latestPulse?.opticalReady ? 'Acquiring' : '—';
+ }
+ spo2.textContent = oxygenStatus();
+ steps.textContent = latestActivity?.steps?.toLocaleString() ?? '—';
+ const epoch = latestActivity?.epochSeconds;
+ if (epoch != null) {
+  const local = new Date((epoch + latestActivity.utcOffsetMinutes * 60) * 1000);
+  clock.textContent = local.toISOString().slice(11, 19);
+ } else {
+  clock.textContent = '—';
+ }
+ const chip = latestActivity?.imuTemperatureC;
+ temperature.textContent = chip == null ? '' : 'MPU-6050 chip temperature: ' + chip.toFixed(1) + ' °C';
+ if (lastPacket) {
+  const redWeak = latestActivity?.redWeak;
+  status.textContent = redWeak ? 'Connected · weak red optical signal' : 'Connected';
+ }
+ updateTemperatureControls();
+}
+
+function oxygenStatus() {
+ if (!latestPulse) return '—';
+ if (latestPulse.spo2 != null) return latestPulse.spo2 + '%';
+ if (latestPulse.oxygenTrial != null) return latestPulse.oxygenTrial + '% (uncalibrated)';
+ if (!latestPulse.oxygenTrialSupported) return '—';
+ if (latestActivity?.moving) return 'Hold still';
+ if (latestActivity?.redWeak) return 'Weak signal';
+ return 'Acquiring';
+}
+
+function updateTemperatureControls() {
+ const active = temperatureCapture.active;
+ temperatureStart.disabled = active || latestActivity?.imuTemperatureC == null;
+ temperatureStop.disabled = !active;
+ temperatureSave.disabled = active || !temperatureCapture.sampleCount;
+ for (const input of temperatureForm.querySelectorAll('input, select')) input.disabled = active;
+ const count = temperatureCapture.sampleCount;
+ temperatureStatus.textContent = active ? 'Recording · ' + count + ' samples' :
+  count ? count + ' samples ready to download' : '';
+}
+
+function clear() {
+ temperatureCapture.stop();
+ lastPacket = 0;
+ latestPulse = undefined;
+ latestActivity = undefined;
+ metrics.textContent = EMPTY_RAW;
+ motion.textContent = '';
+ render();
+}
+
+function updateWatchControls() {
+ disconnect.disabled = !connection;
+ aqiSync.disabled = !connection || watchBusy;
+ screenControls.disabled = aqiSync.disabled || screenDraft.length === 0;
+ screenApply.disabled = !screenDraft.some(page => page.enabled);
+}
+
+function renderScreenList(focusPage) {
+ let focusTarget;
+ const rows = screenDraft.map((page, index) => {
+  const name = WATCH_SCREEN_NAMES[page.id];
+  const row = document.createElement('li');
+  const label = document.createElement('label');
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = page.enabled;
+  checkbox.onchange = () => {
+   page.enabled = checkbox.checked;
+   updateWatchControls();
+  };
+  label.append(checkbox, ' ' + name);
+  row.append(label);
+  if (page.id === focusPage) focusTarget = checkbox;
+  for (const direction of [-1, 1]) {
+   const to = index + direction;
+   const button = document.createElement('button');
+   button.type = 'button';
+   button.textContent = direction < 0 ? 'Move up' : 'Move down';
+   button.setAttribute('aria-label', `Move ${name} ${direction < 0 ? 'up' : 'down'}`);
+   button.disabled = to < 0 || to >= screenDraft.length;
+   button.onclick = () => {
+    [screenDraft[index], screenDraft[to]] = [screenDraft[to], screenDraft[index]];
+    renderScreenList(page.id);
+   };
+   row.append(button);
+  }
+  return row;
+ });
+ screenList.replaceChildren(...rows);
+ updateWatchControls();
+ focusTarget?.focus();
+}
+
+function showScreenOrder(order) {
+ const hidden = WATCH_SCREEN_NAMES.map((_, id) => id).filter(id => !order.includes(id));
+ screenDraft = [...order.map(id => ({id, enabled: true})), ...hidden.map(id => ({id, enabled: false}))];
+ renderScreenList();
+}
+
+async function runWatchAction(feedback, progress, action, applied) {
+ const watch = connection;
+ if (!watch || watchBusy) return;
+ watchBusy = true;
+ updateWatchControls();
+ feedback.textContent = progress;
+ try {
+  const result = await action(watch);
+  if (connection === watch) feedback.textContent = applied(result);
+ } catch (error) {
+  if (connection === watch) feedback.textContent = error.message;
+ } finally {
+  if (connection === watch) {
+   watchBusy = false;
+   updateWatchControls();
+  }
+ }
+}
+
+temperatureForm.addEventListener('submit', event => {
+ event.preventDefault();
+ if (latestActivity?.imuTemperatureC == null) return;
+ const form = new FormData(temperatureForm);
+ temperatureCapture.start(form.get('reference'), form.get('placement'), form.get('power'));
+ updateTemperatureControls();
+});
+
+temperatureStop.onclick = () => {
+ temperatureCapture.stop();
+ updateTemperatureControls();
+};
+
+temperatureSave.onclick = () => {
+ const url = URL.createObjectURL(new Blob([temperatureCapture.toCsv()], {type: 'text/csv'}));
+ const link = document.createElement('a');
+ link.href = url;
+ link.download = 'watch-temperature-' + new Date().toISOString().replace(/[:.]/g, '-') + '.csv';
+ link.click();
+ setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+connect.onclick = async () => {
+ connect.disabled = true;
+ updateWatchControls();
+ aqiStatus.textContent = '';
+ try {
+  connection?.disconnect();
+  clear();
+  status.textContent = 'Connecting…';
+  connection = await connectFitnessWatch({
+   onPulse(data) {
+    lastPacket = Date.now();
+    latestPulse = data;
+    render();
+   },
+   onRaw(data) {
+    metrics.textContent = data ? 'Red: ' + data.red + ' · IR: ' + data.ir : EMPTY_RAW;
+   },
+   onMotion(data) {
+    const xyz = values => values.map(value => value.toFixed(2)).join(', ');
+    motion.textContent = data
+     ? 'Acceleration X, Y, Z: ' + xyz(data.accel) + ' m/s²\nGyroscope X, Y, Z: ' + xyz(data.gyro) + ' rad/s'
+     : 'MPU-6050 unavailable';
+   },
+   onActivity(data) {
+    latestActivity = data;
+    temperatureCapture.sample(data.imuTemperatureC);
+    render();
+   },
+   onDisconnect() {
+    connection = undefined;
+    watchBusy = false;
+    screenDraft = [];
+    renderScreenList();
+    clear();
+    aqiStatus.textContent = '';
+    screenStatus.textContent = 'Connect the watch to change its screens.';
+    connect.disabled = false;
+    status.textContent = 'Disconnected';
+   },
+   onError(error) {
+    status.textContent = error.message;
+   },
+  });
+  void runWatchAction(screenStatus, 'Reading the watch screen order…', watch => watch.getScreenOrder(), order => {
+   if (!order) return 'Install the latest watch firmware to use screen controls.';
+   showScreenOrder(order);
+   return '';
+  });
+ } catch (error) {
+  clear();
+  status.textContent = error.message;
+ } finally {
+  connect.disabled = Boolean(connection);
+ }
+};
+
+aqiSync.onclick = () => runWatchAction(aqiStatus, 'Getting air quality…', watch => watch.syncAqi(),
+                                       () => 'IIT Delhi AQI sent to the watch.');
+
+function applyScreens(order) {
+ return runWatchAction(screenStatus, 'Applying screen order…', watch => watch.setScreenOrder(order), () => {
+  showScreenOrder(order);
+  return order.length === 1 && order[0] === 0 ? 'The watch is set to Time only.' : 'Screen order applied.';
+ });
+}
+
+screenApply.onclick = () => applyScreens(screenDraft.filter(page => page.enabled).map(page => page.id));
+timeOnly.onclick = () => applyScreens([0]);
+
+disconnect.onclick = () => connection?.disconnect();
+setInterval(() => {
+ if (lastPacket && Date.now() - lastPacket > 5000) {
+  clear();
+  status.textContent = 'Sensor updates stopped';
+ }
+}, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+name: FitnessWatch Pages
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+
+concurrency:
+  group: fitnesswatch-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Refresh IIT Delhi AQI
+        env:
+          TRIGGER: ${{ github.event_name }}
+        run: |
+          if ! python3 scripts/refresh-aqi.py; then
+            if [ "$TRIGGER" = schedule ]; then
+              exit 1
+            fi
+            printf '{"aqi":null,"observedAt":null}\n' > site/aqi.json
+          fi
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - name: Deploy to Pages
+        id: publish
+        uses: actions/deploy-pages@v4
