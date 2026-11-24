@@ -1,0 +1,71 @@
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/*
+ * XIAO nRF52840 wearable peripherals.
+ *
+ * The OLED and external sensors sit on the XIAO header I2C bus (xiao_i2c = i2c1):
+ *   SDA = D4 / P0.04
+ *   SCL = D5 / P0.05
+ * The MPU-6050 address assumes AD0 is low.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&lsm6ds3tr_c {
+	status = "disabled";
+};
+
+&xiao_i2c {
+	status = "okay";
+
+	/* Fermion I2C/UART module: application uses DFRobot MCU protocol.
+	 * Do not bind the bare MAX30102 register driver to this address. */
+
+	mpu6050: mpu6050@68 {
+		compatible = "invensense,mpu6050";
+		reg = <0x68>;
+	};
+	/* SSD1306 128x64 monochrome OLED (driven by the SSD1306 driver) */
+	ssd1306: ssd1306@3c {
+		compatible = "solomon,ssd1306";
+		reg = <0x3c>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep = <0x22>;
+		status = "okay";
+	};
+};
+
+/ {
+	zephyr,user {
+		io-channels = <&adc 0>;
+		read-enable-gpios = <&gpio0 14 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+	};
+
+	chosen {
+		zephyr,display = &ssd1306;
+	};
+};
+
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_3";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN7>;
+		zephyr,resolution = <12>;
+		zephyr,oversampling = <4>;
+	};
+};

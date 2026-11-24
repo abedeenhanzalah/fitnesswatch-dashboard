@@ -1,0 +1,4 @@
+&board_cdc_acm_uart {
+	hw-flow-control;
+	tx-fifo-size = <4096>;
+};

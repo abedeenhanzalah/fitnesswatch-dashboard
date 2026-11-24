@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
+
+/* D9 is SDA (P1.14) and D10 is SCL (P1.15). */
+&i2c1_default {
+	group1 {
+		psels = <NRF_PSEL(TWIM_SDA, 1, 14)>,
+			<NRF_PSEL(TWIM_SCL, 1, 15)>;
+	};
+};
+
+&i2c1_sleep {
+	group1 {
+		psels = <NRF_PSEL(TWIM_SDA, 1, 14)>,
+			<NRF_PSEL(TWIM_SCL, 1, 15)>;
+	};
+};
+
+&xiao_spi {
+	status = "disabled";
+};

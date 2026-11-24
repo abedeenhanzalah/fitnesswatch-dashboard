@@ -1,1 +1,5 @@
 /site/aqi.json
+/build*/
+__pycache__/
+*.uf2
+*.csv
